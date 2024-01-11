@@ -1,0 +1,198 @@
+---
+- name: ESDS Update
+  hosts: esds_yev
+  gather_facts: false
+
+  tasks:
+    - name: Download app api.war file from drive.cbar.az
+      uri:
+        url: "https://drive.cbar.az/index.php/s/9CPTjr6ze6rBQ78/download/api.war"
+        method: GET
+        dest: "/tmp/"
+      when: "server == 'app'"
+      tags:
+        - app_backend_update
+
+
+    - name: Download dmz api.war file from drive.cbar.az
+      uri:
+        url: "https://drive.cbar.az/index.php/s/JsHynZDmmrtNBZf/download/api.war"
+        method: GET
+        dest: "/tmp/"
+      when: "server == 'dmz'"
+      tags:
+        - dmz_backend_update
+
+
+    - name: Stop Services_New service on app server
+      service:
+        name: tomcat
+        state: stopped
+      become: true
+      when: "server == 'app'"
+      tags:
+      - app_backend_update
+
+    - name: Stop Services_New service on dmz server
+      service:
+        name: tomcat
+        state: stopped
+      become: true
+      when: "server == 'dmz'"
+      tags:
+      - dmz_backend_update
+
+    - name: Get current date
+      command: date +"%Y%m%d%H%M"
+      register: current_date
+      changed_when: false
+      when: "server == 'app' or server == 'dmz'"
+      tags:
+      - app_backend_update
+      - app_user_front_update
+      - app_admin_front_update
+      - dmz_backend_update
+      - dmz_user_front_update
+      - dmz_admin_front_update
+
+
+    - name: Copy new war file on app server
+      command: "{{ item }}"
+      with_items:
+        - mv /documentum/ESDS/Services_New/webapps/api.war  /documentum/ESDS/Services_New/webapps/api-{{ current_date.stdout }}.war.old
+        - mv /tmp/api.war  /documentum/ESDS/Services_New/webapps/
+        - rm -rf /documentum/ESDS/Services_New/webapps/api/
+        - chown appadmin10:appadmin10 /documentum/ESDS/Services_New/webapps/api.war
+        - chmod 755 /documentum/ESDS/Services_New/webapps/api.war
+      become: true
+      when: "server == 'app'"
+      tags:
+      - app_backend_update
+
+
+    - name: Copy new war file on dmz server
+      command: "{{ item }}"
+      with_items:
+        - mv /documentum/ESDS/Services_New/webapps/api.war  /documentum/ESDS/Services_New/webapps/api-{{ current_date.stdout }}.war.old
+        - mv /tmp/api.war  /documentum/ESDS/Services_New/webapps/
+        - rm -rf /documentum/ESDS/Services_New/webapps/api/
+        - chown appadmin10:appadmin10 /documentum/ESDS/Services_New/webapps/api.war
+        - chmod 755 /documentum/ESDS/Services_New/webapps/api.war
+      become: true
+      when: "server == 'dmz'"
+      tags:
+      - dmz_backend_update
+
+    - name: Start Services_New service on app server
+      service:
+        name: tomcat
+        state: started
+      become: true
+      when: "server == 'app'"
+      tags:
+        - app_backend_update
+
+
+    - name: Start Services_New service on dmz server
+      service:
+        name: tomcat
+        state: started
+      become: true
+      when: "server == 'dmz'"
+      tags:
+        - dmz_backend_update
+
+    - name: Download frontend  update file from drive.cbar.az app server
+      uri:
+        url: "https://drive.cbar.az/index.php/s/jo4MP28AKqG9TY2/download"
+        method: GET
+        dest: "/tmp/front.zip"
+      when: "server == 'app'"
+      tags:
+      - app_user_front_update
+      - app_admin_front_update
+
+    - name: Update app user front
+      command: "{{ item }}"
+      with_items:
+        - unzip -o /tmp/front.zip -d /tmp/
+        - rm -rf /tmp/front.zip
+        - mv /documentum/ESDS/Interface/user/build/assets  /documentum/ESDS/Interface/user/build/assets_{{ current_date.stdout }}
+        - mv /documentum/ESDS/Interface/user/build/static  /documentum/ESDS/Interface/user/build/static_{{ current_date.stdout }}
+        - mv /documentum/ESDS/Interface/user/build/index.html  /documentum/ESDS/Interface/user/build/index.html.{{ current_date.stdout }}
+        - unzip -o /tmp/Front/user_build.zip -d /documentum/ESDS/Interface/user/build/
+        - rm -rf /tmp/Front/cbar_admin_build.zip  /tmp/Front/user_build.zip
+        - chown -R dmappadmin:esds_server_admins  /documentum/ESDS/Interface/user/build/
+      become: true
+      when: "server == 'app'"
+      tags:
+      - app_user_front_update
+
+    - name: Update app admin front
+      command: "{{ item }}"
+      with_items:
+        - unzip -o /tmp/front.zip -d /tmp/
+        - rm -rf /tmp/front.zip
+        - mv /documentum/ESDS/Interface/admin/build  /documentum/ESDS/Interface/admin/build_{{ current_date.stdout }}
+        - unzip -o /tmp/Front/cbar_admin_build.zip -d /documentum/ESDS/Interface/admin/
+        - rm -rf /tmp/Front/cbar_admin_build.zip  /tmp/Front/user_build.zip
+        - chown -R dmappadmin:esds_server_admins /documentum/ESDS/Interface/admin/build/
+      become: true
+      when: "server == 'app'"
+      tags:
+        - app_admin_front_update
+
+    - name: Download frontend  update file from drive.cbar.az dmz server
+      uri:
+        url: "https://drive.cbar.az/index.php/s/YKjnKQprx5xdSqz/download"
+        method: GET
+        dest: "/tmp/front.zip"
+      when: "server == 'dmz'"
+      tags:
+      - dmz_user_front_update
+      - dmz_admin_front_update
+
+
+    - name: Update dmz user front
+      command: "{{ item }}"
+      with_items:
+        - unzip -o /tmp/front.zip -d /tmp/
+        - rm -rf /tmp/front.zip
+        - mv /documentum/ESDS/Interface/user/build/assets  /documentum/ESDS/Interface/user/build/assets_{{ current_date.stdout }}
+        - mv /documentum/ESDS/Interface/user/build/static  /documentum/ESDS/Interface/user/build/static_{{ current_date.stdout }}
+        - mv /documentum/ESDS/Interface/user/build/index.html  /documentum/ESDS/Interface/user/build/index.html_{{ current_date.stdout }}
+        - unzip -o /tmp/Front/user_build.zip -d /documentum/ESDS/Interface/user/build/
+        - rm -rf /tmp/Front/cbar_admin_build.zip  /tmp/Front/user_build.zip
+        - chown -R dmappadmin:esds_server_admins  /documentum/ESDS/Interface/user/build/
+      become: true
+      when: "server == 'dmz'"
+      tags:
+      - dmz_user_front_update
+
+    - name: Update dmz admin front
+      command: "{{ item }}"
+      with_items:
+        - unzip -o /tmp/front.zip -d /tmp/
+        - rm -rf /tmp/front.zip
+        - mv /documentum/ESDS/Interface/admin/build  /documentum/ESDS/Interface/admin/build_{{ current_date.stdout }}
+        - unzip -o /tmp/Front/cbar_dmz_admin_build.zip -d /documentum/ESDS/Interface/admin/
+        - rm -rf /tmp/Front/cbar_dmz_admin_build.zip  /tmp/Front/user_build.zip
+        - chown -R dmappadmin:esds_server_admins /documentum/ESDS/Interface/admin/build/
+      become: true
+      when: "server == 'dmz'"
+      tags:
+        - dmz_admin_front_update
+
+
+    - name: Cleanup
+      command: "{{ item }}"
+      with_items:
+        - rm -rf /documentum/ESDS/Interface/user/build/assets_*
+        - rm -rf /documentum/ESDS/Interface/user/build/static_*
+        - rm -rf /documentum/ESDS/Interface/user/build/index.html_*
+        - rm -rf /documentum/ESDS/Interface/admin/build_*
+        - rm -rf /documentum/ESDS/Services_New/webapps/api-*
+      become: true
+      when: "server == 'app' or server == 'dmz'"
+      tags:
+        - cleanup
